@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Usage Report</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --surface: #ffffff; --surface-2: #f1f1ee; --border: #e3e3de;
+    --text: #1d1d1b; --muted: #6b6b66; --accent: #2f6fd6; --accent-soft: #dce7fa;
+    --good: #2e8b57; --warn: #b7791f; --bad: #c0392b; --shadow: 0 1px 2px rgba(0,0,0,.05);
+    --f-daily: #2f6fd6; --f-weekly: #5b9bea; --f-monthly: #9cc2f3; --f-occ: #c9c9c2; --f-none: #e6e6e1;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #151514; --surface: #1e1e1c; --surface-2: #262624; --border: #33332f;
+      --text: #ecece8; --muted: #9a9a93; --accent: #6ea0f0; --accent-soft: #23324d;
+      --good: #5cc28a; --warn: #e0a84a; --bad: #e86b5c; --shadow: none;
+      --f-daily: #6ea0f0; --f-weekly: #4a7cc9; --f-monthly: #34588f; --f-occ: #55554f; --f-none: #3a3a36;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #151514; --surface: #1e1e1c; --surface-2: #262624; --border: #33332f;
+    --text: #ecece8; --muted: #9a9a93; --accent: #6ea0f0; --accent-soft: #23324d;
+    --good: #5cc28a; --warn: #e0a84a; --bad: #e86b5c; --shadow: none;
+    --f-daily: #6ea0f0; --f-weekly: #4a7cc9; --f-monthly: #34588f; --f-occ: #55554f; --f-none: #3a3a36;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif; }
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 24px 16px 48px; }
+  header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; align-items: flex-end; margin-bottom: 20px; }
+  h1 { font-size: 22px; margin: 0 0 4px; font-weight: 600; }
+  h2 { font-size: 15px; margin: 0 0 12px; font-weight: 600; }
+  h3 { font-size: 13px; margin: 18px 0 8px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .meta { color: var(--muted); font-size: 13px; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); font-size: 12px; margin: 2px 4px 2px 0; white-space: nowrap; }
+  .pill.accent { background: var(--accent-soft); border-color: transparent; color: var(--text); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; box-shadow: var(--shadow); }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .kpi .label { color: var(--muted); font-size: 12px; }
+  .kpi .value { font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .kpi .sub { color: var(--muted); font-size: 12px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  @media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } }
+  svg text { fill: var(--muted); font-size: 11px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; align-items: center; }
+  input[type=search], select { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font: inherit; }
+  input[type=search] { flex: 1 1 220px; min-width: 0; }
+  .tablewrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 600; cursor: pointer; user-select: none; position: sticky; top: 0; background: var(--surface); }
+  th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  th .arrow { opacity: .6; margin-left: 2px; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: var(--surface-2); }
+  td.name { white-space: normal; min-width: 180px; font-weight: 500; }
+  .freq { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .count { color: var(--muted); font-size: 12px; margin-left: auto; }
+  .drawer-bg { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; z-index: 10; }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(640px, 100%); background: var(--surface); border-left: 1px solid var(--border);
+    overflow-y: auto; padding: 20px; transform: translateX(100%); transition: transform .2s ease; z-index: 11; }
+  .drawer.open { transform: none; }
+  .drawer-bg.open { display: block; }
+  .close { float: right; background: none; border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 4px 10px; cursor: pointer; font: inherit; }
+  dl { display: grid; grid-template-columns: 160px 1fr; gap: 6px 12px; margin: 0; font-size: 13px; }
+  dt { color: var(--muted); }
+  dd { margin: 0; word-break: break-word; }
+  .mini td, .mini th { padding: 5px 8px; white-space: normal; }
+  .mini th { cursor: default; position: static; }
+  .empty { color: var(--muted); font-style: italic; padding: 8px 0; }
+  .notes { color: var(--muted); font-size: 12px; margin-top: 16px; }
+  .notes li { margin-bottom: 4px; }
+  .warn { color: var(--warn); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Agent Usage Report</h1>
+      <div class="meta" id="meta"></div>
+    </div>
+    <div id="sources"></div>
+  </header>
+
+  <section class="kpis" id="kpis"></section>
+
+  <section class="grid2">
+    <div class="card"><h2>Top agents by sessions</h2><div id="topChart"></div></div>
+    <div class="card"><h2>Usage frequency</h2><div id="freqChart"></div></div>
+  </section>
+  <section class="card" style="margin-bottom:16px"><h2>Daily sessions, all agents</h2><div id="dailyChart"></div></section>
+
+  <section class="card">
+    <div class="toolbar">
+      <input type="search" id="q" placeholder="Search agents, owners, environments, connectors…">
+      <select id="fSource"><option value="">All sources</option></select>
+      <select id="fFreq"><option value="">All frequencies</option></select>
+      <select id="fPub"><option value="">Published or not</option><option value="true">Published</option><option value="false">Not published</option></select>
+      <span class="count" id="count"></span>
+    </div>
+    <div class="tablewrap"><table id="agents"><thead></thead><tbody></tbody></table></div>
+  </section>
+
+  <ul class="notes" id="notes"></ul>
+</div>
+
+<div class="drawer-bg" id="drawerBg"></div>
+<aside class="drawer" id="drawer" aria-hidden="true"></aside>
+
+<script>
+const DATA = {"meta":{"Sources":["Dataverse transcripts","Purview audit"],"Warnings":["Sample warning"],"EnvironmentCount":2,"GeneratedOn":"2026-11-03T08:22:43","WindowDays":30},"users":[{"AgentKey":"cs:aaaa","UserKey":"user13@contoso.com","DisplayName":null,"UserPrincipalName":"user13@contoso.com","Sessions":9,"ActiveDays":9,"FirstSeen":"2026-10-07T06:22:43Z","LastSeen":"2026-11-03T08:22:43Z","Channels":"msteams","Sources":"Transcripts"},{"AgentKey":"cs:aaaa","UserKey":"user1@contoso.com","DisplayName":null,"UserPrincipalName":"user1@contoso.com","Sessions":10,"ActiveDays":10,"FirstSeen":"2026-10-08T05:22:43Z","LastSeen":"2026-11-03T07:22:43Z","Channels":"msteams","Sources":"Transcripts"},{"AgentKey":"cs:aaaa","UserKey":"user10@contoso.com","DisplayName":null,"UserPrincipalName":"user10@contoso.com","Sessions":8,"ActiveDays":6,"FirstSeen":"2026-10-08T07:22:43Z","LastSeen":"2026-11-03T06:22:43Z","Channels":"msteams","Sources":"Transcripts"},{"AgentKey":"cs:aaaa","UserKey":"user12@contoso.com","DisplayName":null,"UserPrincipalName":"user12@contoso.com","Sessions":9,"ActiveDays":7,"FirstSeen":"2026-10-14T06:22:43Z","LastSeen":"2026-11-02T08:22:43Z","Channels":"msteams","Sources":"Transcripts"},{"AgentKey":"cs:aaaa","UserKey":"user7@contoso.com","DisplayName":null,"UserPrincipalName":"user7@contoso.com","Sessions":5,"ActiveDays":4,"FirstSeen":"2026-10-06T07:22:43Z","LastSeen":"2026-11-02T07:22:43Z","Channels":"msteams","Sources":"Transcripts"},{"AgentKey":"cs:aaaa","UserKey":"user6@contoso.com","DisplayName":null,"UserPrincipalName":"user6@contoso.com","Sessions":6,"ActiveDays":5,"FirstSeen":"2026-10-08T08:22:43Z","LastSeen":"2026-11-01T08:22:43Z","Channels":"msteams","Sources":"Transcripts"},{"AgentKey":"cs:aaaa","UserKey":"user5@contoso.com","DisplayName":null,"UserPrincipalName":"user5@contoso.com","Sessions":8,"ActiveDays":7,"FirstSeen":"2026-10-05T05:22:43Z","LastSeen":"2026-11-01T07:22:43Z","Channels":"msteams","Sources":"Transcripts"},{"AgentKey":"cs:aaaa","UserKey":"user8@contoso.com","DisplayName":null,"UserPrincipalName":"user8@contoso.com","Sessions":8,"ActiveDays":7,"FirstSeen":"2026-10-14T07:22:43Z","LastSeen":"2026-11-01T05:22:43Z","Channels":"msteams","Sources":"Transcripts"},{"AgentKey":"cs:aaaa","UserKey":"user14@contoso.com","DisplayName":null,"UserPrincipalName":"user14@contoso.com","Sessions":6,"ActiveDays":6,"FirstSeen":"2026-10-05T07:22:43Z","LastSeen":"2026-10-31T07:22:43Z","Channels":"msteams","Sources":"Transcripts"},{"AgentKey":"cs:aaaa","UserKey":"user11@contoso.com","DisplayName":null,"UserPrincipalName":"user11@contoso.com","Sessions":7,"ActiveDays":7,"FirstSeen":"2026-10-10T08:22:43Z","LastSeen":"2026-10-30T08:22:43Z","Channels":"msteams","Sources":"Transcripts"},{"AgentKey":"cs:aaaa","UserKey":"user2@contoso.com","DisplayName":null,"UserPrincipalName":"user2@contoso.com","Sessions":10,"ActiveDays":9,"FirstSeen":"2026-10-07T08:22:43Z","LastSeen":"2026-10-29T08:22:43Z","Channels":"msteams","Sources":"Transcripts"},{"AgentKey":"cs:aaaa","UserKey":"user3@contoso.com","DisplayName":null,"UserPrincipalName":"user3@contoso.com","Sessions":8,"ActiveDays":7,"FirstSeen":"2026-10-05T06:22:43Z","LastSeen":"2026-10-28T06:22:43Z","Channels":"msteams","Sources":"Transcripts"},{"AgentKey":"cs:aaaa","UserKey":"user9@contoso.com","DisplayName":null,"UserPrincipalName":"user9@contoso.com","Sessions":7,"ActiveDays":7,"FirstSeen":"2026-10-11T07:22:43Z","LastSeen":"2026-10-27T07:22:43Z","Channels":"msteams","Sources":"Transcripts"},{"AgentKey":"cs:aaaa","UserKey":"user4@contoso.com","DisplayName":null,"UserPrincipalName":"user4@contoso.com","Sessions":2,"ActiveDays":2,"FirstSeen":"2026-10-07T07:22:43Z","LastSeen":"2026-10-11T05:22:43Z","Channels":"msteams","Sources":"Transcripts"},{"AgentKey":"m365:pkg1","UserKey":"user2@contoso.com","DisplayName":null,"UserPrincipalName":"user2@contoso.com","Sessions":5,"ActiveDays":5,"FirstSeen":"2026-10-10T08:22:43Z","LastSeen":"2026-11-03T08:22:43Z","Channels":"BizChat","Sources":"Purview"},{"AgentKey":"audit:copilotstudio.customengine.99999999-9999-9999-9999-999999999999","UserKey":"user3@contoso.com","DisplayName":null,"UserPrincipalName":"user3@contoso.com","Sessions":1,"ActiveDays":1,"FirstSeen":"2026-11-03T08:22:43Z","LastSeen":"2026-11-03T08:22:43Z","Channels":"Teams","Sources":"Purview"}],"knowledge":[],"sharing":[{"AgentKey":"cs:aaaa","PrincipalName":"IT Staff","PrincipalType":"Group (AAD Security Group)","Role":"Viewer","GroupMemberCount":118,"Via":"Direct"}],"daily":[{"AgentKey":"cs:aaaa","Date":"2026-11-03","Source":"Transcripts","Sessions":3,"UniqueUsers":3},{"AgentKey":"cs:aaaa","Date":"2026-11-02","Source":"Transcripts","Sessions":3,"UniqueUsers":2},{"AgentKey":"cs:aaaa","Date":"2026-11-01","Source":"Transcripts","Sessions":4,"UniqueUsers":4},{"AgentKey":"cs:aaaa","Date":"2026-10-31","Source":"Transcripts","Sessions":2,"UniqueUsers":2},{"AgentKey":"cs:aaaa","Date":"2026-10-30","Source":"Transcripts","Sessions":2,"UniqueUsers":2},{"AgentKey":"cs:aaaa","Date":"2026-10-29","Source":"Transcripts","Sessions":5,"UniqueUsers":4},{"AgentKey":"cs:aaaa","Date":"2026-10-28","Source":"Transcripts","Sessions":3,"UniqueUsers":3},{"AgentKey":"cs:aaaa","Date":"2026-10-27","Source":"Transcripts","Sessions":3,"UniqueUsers":2},{"AgentKey":"cs:aaaa","Date":"2026-10-26","Source":"Transcripts","Sessions":3,"UniqueUsers":3},{"AgentKey":"cs:aaaa","Date":"2026-10-25","Source":"Transcripts","Sessions":5,"UniqueUsers":4},{"AgentKey":"cs:aaaa","Date":"2026-10-24","Source":"Transcripts","Sessions":3,"UniqueUsers":2},{"AgentKey":"cs:aaaa","Date":"2026-10-23","Source":"Transcripts","Sessions":3,"UniqueUsers":3},{"AgentKey":"cs:aaaa","Date":"2026-10-22","Source":"Transcripts","Sessions":3,"UniqueUsers":3},{"AgentKey":"cs:aaaa","Date":"2026-10-21","Source":"Transcripts","Sessions":3,"UniqueUsers":3},{"AgentKey":"cs:aaaa","Date":"2026-10-20","Source":"Transcripts","Sessions":4,"UniqueUsers":3},{"AgentKey":"cs:aaaa","Date":"2026-10-19","Source":"Transcripts","Sessions":2,"UniqueUsers":2},{"AgentKey":"cs:aaaa","Date":"2026-10-18","Source":"Transcripts","Sessions":4,"UniqueUsers":4},{"AgentKey":"cs:aaaa","Date":"2026-10-17","Source":"Transcripts","Sessions":5,"UniqueUsers":5},{"AgentKey":"cs:aaaa","Date":"2026-10-16","Source":"Transcripts","Sessions":4,"UniqueUsers":4},{"AgentKey":"cs:aaaa","Date":"2026-10-15","Source":"Transcripts","Sessions":2,"UniqueUsers":2},{"AgentKey":"cs:aaaa","Date":"2026-10-14","Source":"Transcripts","Sessions":4,"UniqueUsers":3},{"AgentKey":"cs:aaaa","Date":"2026-10-13","Source":"Transcripts","Sessions":4,"UniqueUsers":4},{"AgentKey":"cs:aaaa","Date":"2026-10-12","Source":"Transcripts","Sessions":3,"UniqueUsers":2},{"AgentKey":"cs:aaaa","Date":"2026-10-11","Source":"Transcripts","Sessions":5,"UniqueUsers":5},{"AgentKey":"cs:aaaa","Date":"2026-10-10","Source":"Transcripts","Sessions":5,"UniqueUsers":5},{"AgentKey":"cs:aaaa","Date":"2026-10-09","Source":"Transcripts","Sessions":2,"UniqueUsers":1},{"AgentKey":"cs:aaaa","Date":"2026-10-08","Source":"Transcripts","Sessions":5,"UniqueUsers":5},{"AgentKey":"cs:aaaa","Date":"2026-10-07","Source":"Transcripts","Sessions":3,"UniqueUsers":3},{"AgentKey":"cs:aaaa","Date":"2026-10-06","Source":"Transcripts","Sessions":2,"UniqueUsers":2},{"AgentKey":"cs:aaaa","Date":"2026-10-05","Source":"Transcripts","Sessions":4,"UniqueUsers":3},{"AgentKey":"m365:pkg1","Date":"2026-11-03","Source":"Purview","Sessions":1,"UniqueUsers":1},{"AgentKey":"m365:pkg1","Date":"2026-10-28","Source":"Purview","Sessions":1,"UniqueUsers":1},{"AgentKey":"m365:pkg1","Date":"2026-10-22","Source":"Purview","Sessions":1,"UniqueUsers":1},{"AgentKey":"m365:pkg1","Date":"2026-10-16","Source":"Purview","Sessions":1,"UniqueUsers":1},{"AgentKey":"m365:pkg1","Date":"2026-10-10","Source":"Purview","Sessions":1,"UniqueUsers":1},{"AgentKey":"audit:copilotstudio.customengine.99999999-9999-9999-9999-999999999999","Date":"2026-11-03","Source":"Purview","Sessions":1,"UniqueUsers":1}],"connectors":[{"AgentKey":"cs:aaaa","Connector":"office365","UsedBy":"Tool: Send an email","AuthMode":"Invoker"}],"lifecycle":[],"tools":[{"AgentKey":"cs:aaaa","AgentName":"IT Helpdesk","ToolName":"Send an email","ToolType":"Connector","OperationId":"SendEmailV2","AuthMode":"Invoker"}],"agents":[{"AgentKey":"cs:aaaa","Source":"Copilot Studio","Name":"IT Helpdesk","AgentId":"aaaa","EnvironmentName":"Prod","EnvironmentType":null,"Owner":"Ana Lopez","OwnerUPN":"ana@contoso.com","CreatedOn":"2026-08-05T08:22:43Z","IsPublished":true,"LastPublishedOn":"2026-09-24T08:22:43Z","PublishedBy":null,"FirstPublishInAudit":null,"PublishCountInAudit":null,"Status":null,"Audience":"Security groups","SharedWithEveryone":null,"SharedUserCount":120,"SharedGroupCount":null,"EditorCount":null,"AuthenticationMode":null,"AccessPolicy":null,"Orchestration":null,"IsAutonomous":null,"ToolCount":3,"TriggerCount":null,"ConnectorCount":2,"KnowledgeCount":null,"UsesMCP":null,"Connectors":"office365, sharepointonline","TotalSessions":103,"UniqueUsers":14,"ActiveDays":30,"AvgSessionsPerDay":3.43,"UsageFrequency":"Daily","FirstUse":"2026-10-05T05:22:43Z","LastUse":"2026-11-03T08:22:43Z","TranscriptSessions":null,"TranscriptUsers":null,"PurviewInteractions":null,"PurviewUsers":null,"AppInsightsSessions":null,"AppInsightsUsers":null,"CatalogActiveUsers30d":null,"CatalogSessions30d":null,"CatalogLastUsed":null,"CatalogInstalledCount":null,"UsageSources":"Transcripts","ApplicationId":null,"SchemaName":"cr_it","EnvironmentId":null,"ModifiedOn":null,"CreatedBy":null,"IsManaged":null,"UsesModelKnowledge":null,"Description":null,"Instructions":null},{"AgentKey":"m365:pkg1","Source":"M365 Copilot","Name":"HR Helper","AgentId":"pkg1","EnvironmentName":null,"EnvironmentType":null,"Owner":null,"OwnerUPN":null,"CreatedOn":null,"IsPublished":true,"LastPublishedOn":null,"PublishedBy":null,"FirstPublishInAudit":null,"PublishCountInAudit":null,"Status":null,"Audience":null,"SharedWithEveryone":true,"SharedUserCount":40,"SharedGroupCount":null,"EditorCount":null,"AuthenticationMode":null,"AccessPolicy":null,"Orchestration":null,"IsAutonomous":null,"ToolCount":2,"TriggerCount":null,"ConnectorCount":null,"KnowledgeCount":null,"UsesMCP":null,"Connectors":null,"TotalSessions":5,"UniqueUsers":1,"ActiveDays":5,"AvgSessionsPerDay":0.17,"UsageFrequency":"Weekly","FirstUse":"2026-10-10T08:22:43Z","LastUse":"2026-11-03T08:22:43Z","TranscriptSessions":null,"TranscriptUsers":null,"PurviewInteractions":null,"PurviewUsers":null,"AppInsightsSessions":null,"AppInsightsUsers":null,"CatalogActiveUsers30d":6,"CatalogSessions30d":12,"CatalogLastUsed":null,"CatalogInstalledCount":null,"UsageSources":"Purview","ApplicationId":"bbbbbbbb-1111-2222-3333-444444444444","SchemaName":null,"EnvironmentId":null,"ModifiedOn":null,"CreatedBy":null,"IsManaged":null,"UsesModelKnowledge":null,"Description":null,"Instructions":null},{"AgentKey":"cs:cccc","Source":"Copilot Studio","Name":"Expense Assistant","AgentId":"cccc","EnvironmentName":null,"EnvironmentType":null,"Owner":null,"OwnerUPN":null,"CreatedOn":null,"IsPublished":false,"LastPublishedOn":null,"PublishedBy":null,"FirstPublishInAudit":null,"PublishCountInAudit":null,"Status":null,"Audience":null,"SharedWithEveryone":null,"SharedUserCount":0,"SharedGroupCount":null,"EditorCount":null,"AuthenticationMode":null,"AccessPolicy":null,"Orchestration":null,"IsAutonomous":null,"ToolCount":0,"TriggerCount":null,"ConnectorCount":null,"KnowledgeCount":null,"UsesMCP":null,"Connectors":null,"TotalSessions":0,"UniqueUsers":null,"ActiveDays":null,"AvgSessionsPerDay":null,"UsageFrequency":"Not used","FirstUse":null,"LastUse":null,"TranscriptSessions":null,"TranscriptUsers":null,"PurviewInteractions":null,"PurviewUsers":null,"AppInsightsSessions":null,"AppInsightsUsers":null,"CatalogActiveUsers30d":null,"CatalogSessions30d":null,"CatalogLastUsed":null,"CatalogInstalledCount":null,"UsageSources":null,"ApplicationId":null,"SchemaName":null,"EnvironmentId":null,"ModifiedOn":null,"CreatedBy":null,"IsManaged":null,"UsesModelKnowledge":null,"Description":null,"Instructions":null}]};
+
+const esc = s => s == null ? '' : String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = v => (v === null || v === undefined || v === '') ? null : Number(v);
+const fmtN = v => { const n = num(v); return n === null || isNaN(n) ? '—' : n.toLocaleString(); };
+const fmtD = v => v ? String(v).slice(0, 10) : '—';
+const bool = v => v === true || v === 'True' || v === 'true';
+const arr = v => Array.isArray(v) ? v : (v ? [v] : []);
+const FREQ = ['Daily', 'Weekly', 'Monthly', 'Occasional', 'Not used', 'Unknown'];
+const FREQ_COLOR = { 'Daily': 'var(--f-daily)', 'Weekly': 'var(--f-weekly)', 'Monthly': 'var(--f-monthly)', 'Occasional': 'var(--f-occ)', 'Not used': 'var(--f-none)', 'Unknown': 'var(--f-none)' };
+
+const agents = arr(DATA.agents);
+const byAgent = (list) => { const m = {}; arr(list).forEach(r => { (m[r.AgentKey] = m[r.AgentKey] || []).push(r); }); return m; };
+const toolsBy = byAgent(DATA.tools), connBy = byAgent(DATA.connectors), knowBy = byAgent(DATA.knowledge),
+      shareBy = byAgent(DATA.sharing), usersBy = byAgent(DATA.users), dailyBy = byAgent(DATA.daily), lifeBy = byAgent(DATA.lifecycle);
+
+// ---------- header + KPIs
+const meta = DATA.meta || {};
+document.getElementById('meta').innerHTML =
+  `Generated ${esc(fmtD(meta.GeneratedOn))} · usage window ${esc(meta.WindowDays)} days · ${esc(meta.EnvironmentCount)} environment(s) scanned`;
+document.getElementById('sources').innerHTML = arr(meta.Sources).map(s => `<span class="pill accent">${esc(s)}</span>`).join('');
+
+const sum = (k) => agents.reduce((a, r) => a + (num(r[k]) || 0), 0);
+const allUsers = new Set(arr(DATA.users).map(u => u.UserKey));
+const kpis = [
+  ['Agents', agents.length, `${agents.filter(a => a.Source === 'Copilot Studio').length} Copilot Studio · ${agents.filter(a => a.Source !== 'Copilot Studio').length} other`],
+  ['Published', agents.filter(a => bool(a.IsPublished)).length, 'have a publish date'],
+  ['Active agents', agents.filter(a => num(a.TotalSessions) > 0).length, 'at least 1 session in window'],
+  ['Sessions', sum('TotalSessions'), 'across all agents'],
+  ['Unique users', allUsers.size, 'used any agent'],
+  ['Shared with org', agents.filter(a => bool(a.SharedWithEveryone)).length, 'agents open to everyone'],
+];
+document.getElementById('kpis').innerHTML = kpis.map(([l, v, s]) =>
+  `<div class="card kpi"><div class="label">${esc(l)}</div><div class="value">${fmtN(v)}</div><div class="sub">${esc(s)}</div></div>`).join('');
+
+// ---------- charts (plain SVG)
+function hbar(el, rows, valueKey, labelKey) {
+  if (!rows.length) { el.innerHTML = '<div class="empty">No usage recorded in the window.</div>'; return; }
+  const W = 560, rowH = 26, lw = 190, H = rows.length * rowH + 8, max = Math.max(...rows.map(r => r[valueKey])) || 1;
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img">` + rows.map((r, i) => {
+    const w = (W - lw - 60) * r[valueKey] / max, y = i * rowH + 4;
+    const label = String(r[labelKey]).length > 28 ? String(r[labelKey]).slice(0, 27) + '…' : r[labelKey];
+    return `<text x="${lw - 8}" y="${y + 16}" text-anchor="end">${esc(label)}</text>
+      <rect x="${lw}" y="${y + 4}" width="${Math.max(2, w)}" height="16" rx="3" fill="${r.color || 'var(--accent)'}"><title>${esc(r[labelKey])}: ${fmtN(r[valueKey])}</title></rect>
+      <text x="${lw + w + 6}" y="${y + 16}">${fmtN(r[valueKey])}</text>`;
+  }).join('') + '</svg>';
+}
+hbar(document.getElementById('topChart'),
+  agents.filter(a => num(a.TotalSessions) > 0).sort((a, b) => num(b.TotalSessions) - num(a.TotalSessions)).slice(0, 10)
+    .map(a => ({ name: a.Name, v: num(a.TotalSessions) })), 'v', 'name');
+hbar(document.getElementById('freqChart'),
+  FREQ.map(f => ({ name: f, v: agents.filter(a => (a.UsageFrequency || 'Unknown') === f).length, color: FREQ_COLOR[f] })).filter(r => r.v > 0), 'v', 'name');
+
+(function daily() {
+  const el = document.getElementById('dailyChart');
+  const perDay = {};
+  // Use the source with most sessions per agent per day to avoid double counting.
+  const best = {};
+  arr(DATA.daily).forEach(d => { const k = d.AgentKey + '|' + d.Date; best[k] = Math.max(best[k] || 0, num(d.Sessions) || 0); });
+  Object.entries(best).forEach(([k, v]) => { const day = k.split('|')[1]; perDay[day] = (perDay[day] || 0) + v; });
+  const days = Object.keys(perDay).sort();
+  if (!days.length) { el.innerHTML = '<div class="empty">No daily usage data.</div>'; return; }
+  const W = 1200, H = 180, pad = 32, max = Math.max(...days.map(d => perDay[d])) || 1;
+  const x = i => pad + (W - pad * 2) * (days.length === 1 ? 0.5 : i / (days.length - 1));
+  const y = v => H - 24 - (H - 40) * v / max;
+  const pts = days.map((d, i) => `${x(i)},${y(perDay[d])}`).join(' ');
+  const area = `${x(0)},${H - 24} ${pts} ${x(days.length - 1)},${H - 24}`;
+  const ticks = [0, Math.floor((days.length - 1) / 2), days.length - 1].filter((v, i, a) => a.indexOf(v) === i);
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img">
+    <line x1="${pad}" x2="${W - pad}" y1="${H - 24}" y2="${H - 24}" stroke="var(--border)"/>
+    <polygon points="${area}" fill="var(--accent-soft)"/>
+    <polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2"/>
+    ${days.map((d, i) => `<circle cx="${x(i)}" cy="${y(perDay[d])}" r="7" fill="transparent"><title>${d}: ${perDay[d]} sessions</title></circle>`).join('')}
+    ${ticks.map(i => `<text x="${x(i)}" y="${H - 6}" text-anchor="middle">${days[i]}</text>`).join('')}
+    <text x="${pad}" y="12">peak ${fmtN(max)} / day</text></svg>`;
+})();
+
+// ---------- agents table
+const COLS = [
+  ['Name', 'Agent', 'name'], ['Source', 'Source'], ['EnvironmentName', 'Environment'], ['Owner', 'Owner'],
+  ['LastPublishedOn', 'Published', 'date'], ['SharedUserCount', 'Shared users', 'num'], ['ToolCount', 'Tools', 'num'],
+  ['ConnectorCount', 'Connectors', 'num'], ['TotalSessions', 'Sessions', 'num'], ['UniqueUsers', 'Users', 'num'],
+  ['UsageFrequency', 'Frequency', 'freq'], ['LastUse', 'Last used', 'date'],
+];
+let sortKey = 'TotalSessions', sortDir = -1;
+const fill = (id, vals) => { const s = document.getElementById(id); [...new Set(vals.filter(Boolean))].sort().forEach(v => s.insertAdjacentHTML('beforeend', `<option>${esc(v)}</option>`)); };
+fill('fSource', agents.map(a => a.Source));
+fill('fFreq', agents.map(a => a.UsageFrequency || 'Unknown'));
+
+function renderTable() {
+  const q = document.getElementById('q').value.trim().toLowerCase();
+  const fs = document.getElementById('fSource').value, ff = document.getElementById('fFreq').value, fp = document.getElementById('fPub').value;
+  let rows = agents.filter(a =>
+    (!fs || a.Source === fs) && (!ff || (a.UsageFrequency || 'Unknown') === ff) && (!fp || String(bool(a.IsPublished)) === fp) &&
+    (!q || [a.Name, a.Owner, a.OwnerUPN, a.EnvironmentName, a.Connectors, a.Source, a.Description].join(' ').toLowerCase().includes(q)));
+  const type = (COLS.find(c => c[0] === sortKey) || [])[2];
+  rows.sort((a, b) => {
+    let x = a[sortKey], y = b[sortKey];
+    if (type === 'num') { x = num(x) ?? -1; y = num(y) ?? -1; }
+    else if (type === 'freq') { x = FREQ.indexOf(x || 'Unknown'); y = FREQ.indexOf(y || 'Unknown'); return (x - y) * -sortDir; }
+    else { x = (x || '').toString().toLowerCase(); y = (y || '').toString().toLowerCase(); }
+    return (x > y ? 1 : x < y ? -1 : 0) * sortDir;
+  });
+  document.querySelector('#agents thead').innerHTML = '<tr>' + COLS.map(([k, l, t]) =>
+    `<th data-k="${k}" class="${t === 'num' ? 'num' : ''}">${esc(l)}${sortKey === k ? `<span class="arrow">${sortDir > 0 ? '▲' : '▼'}</span>` : ''}</th>`).join('') + '</tr>';
+  document.querySelector('#agents tbody').innerHTML = rows.map(a => '<tr data-key="' + esc(a.AgentKey) + '">' + COLS.map(([k, , t]) => {
+    const v = a[k];
+    if (t === 'num') return `<td class="num">${fmtN(v)}</td>`;
+    if (t === 'date') return `<td>${fmtD(v)}</td>`;
+    if (t === 'freq') { const f = v || 'Unknown'; return `<td><span class="freq"><span class="dot" style="background:${FREQ_COLOR[f]}"></span>${esc(f)}</span></td>`; }
+    if (t === 'name') return `<td class="name">${esc(v)}</td>`;
+    return `<td>${esc(v) || '—'}</td>`;
+  }).join('') + '</tr>').join('');
+  document.getElementById('count').textContent = `${rows.length} of ${agents.length} agents`;
+}
+document.querySelector('#agents thead').addEventListener('click', e => {
+  const th = e.target.closest('th'); if (!th) return;
+  const k = th.dataset.k; if (sortKey === k) sortDir = -sortDir; else { sortKey = k; sortDir = 1; }
+  renderTable();
+});
+['q', 'fSource', 'fFreq', 'fPub'].forEach(id => document.getElementById(id).addEventListener('input', renderTable));
+document.querySelector('#agents tbody').addEventListener('click', e => { const tr = e.target.closest('tr'); if (tr) openAgent(tr.dataset.key); });
+renderTable();
+
+// ---------- drawer
+function miniTable(rows, cols) {
+  if (!rows || !rows.length) return '<div class="empty">None found.</div>';
+  return '<div class="tablewrap"><table class="mini"><thead><tr>' + cols.map(c => `<th>${esc(c[1])}</th>`).join('') + '</tr></thead><tbody>' +
+    rows.map(r => '<tr>' + cols.map(c => `<td class="${c[2] === 'num' ? 'num' : ''}">${c[2] === 'num' ? fmtN(r[c[0]]) : c[2] === 'date' ? fmtD(r[c[0]]) : (esc(r[c[0]]) || '—')}</td>`).join('') + '</tr>').join('') +
+    '</tbody></table></div>';
+}
+function sparkline(key) {
+  const best = {};
+  arr(dailyBy[key]).forEach(d => { best[d.Date] = Math.max(best[d.Date] || 0, num(d.Sessions) || 0); });
+  const days = Object.keys(best).sort();
+  if (!days.length) return '<div class="empty">No daily usage.</div>';
+  const W = 580, H = 70, max = Math.max(...Object.values(best)) || 1, bw = Math.max(2, (W / days.length) - 2);
+  return `<svg viewBox="0 0 ${W} ${H + 14}" width="100%">` + days.map((d, i) => {
+    const h = Math.max(2, (H - 4) * best[d] / max);
+    return `<rect x="${i * (W / days.length)}" y="${H - h}" width="${bw}" height="${h}" rx="1.5" fill="var(--accent)"><title>${d}: ${best[d]} sessions</title></rect>`;
+  }).join('') + `<text x="0" y="${H + 12}">${days[0]}</text><text x="${W}" y="${H + 12}" text-anchor="end">${days[days.length - 1]}</text></svg>`;
+}
+function openAgent(key) {
+  const a = agents.find(x => x.AgentKey === key); if (!a) return;
+  const d = document.getElementById('drawer');
+  const field = (l, v) => `<dt>${esc(l)}</dt><dd>${v === null || v === undefined || v === '' ? '—' : esc(v)}</dd>`;
+  const topUsers = arr(usersBy[key]).sort((x, y) => num(y.Sessions) - num(x.Sessions)).slice(0, 25);
+  d.innerHTML = `<button class="close" id="closeBtn">Close</button>
+    <h2 style="font-size:18px">${esc(a.Name)}</h2>
+    <div class="meta">${esc(a.Source)}${a.EnvironmentName ? ' · ' + esc(a.EnvironmentName) : ''}</div>
+    <div style="margin:10px 0"><span class="pill accent">${esc(a.UsageFrequency || 'Unknown')}</span>
+      ${bool(a.IsPublished) ? '<span class="pill">Published</span>' : '<span class="pill">Not published</span>'}
+      ${bool(a.IsAutonomous) ? '<span class="pill">Autonomous</span>' : ''}${bool(a.UsesMCP) ? '<span class="pill">MCP</span>' : ''}
+      ${a.Audience ? `<span class="pill">${esc(a.Audience)}</span>` : ''}</div>
+    <h3>Usage (${esc(meta.WindowDays)} days)</h3>${sparkline(key)}
+    <dl>${field('Sessions', fmtN(a.TotalSessions))}${field('Unique users', fmtN(a.UniqueUsers))}${field('Active days', fmtN(a.ActiveDays))}
+      ${field('Avg sessions / day', a.AvgSessionsPerDay)}${field('First / last use', fmtD(a.FirstUse) + ' → ' + fmtD(a.LastUse))}
+      ${field('Usage sources', a.UsageSources)}
+      ${a.CatalogSessions30d != null ? field('Catalog sessions (30d)', fmtN(a.CatalogSessions30d)) + field('Catalog active users (30d)', fmtN(a.CatalogActiveUsers30d)) + field('Catalog last used', fmtD(a.CatalogLastUsed)) : ''}</dl>
+    <h3>Lifecycle</h3>
+    <dl>${field('Owner', [a.Owner, a.OwnerUPN].filter(Boolean).join(' · '))}${field('Created', fmtD(a.CreatedOn))}
+      ${field('Last published', fmtD(a.LastPublishedOn))}${field('Published by', a.PublishedBy)}
+      ${field('First publish (audit)', fmtD(a.FirstPublishInAudit))}${field('Publishes (audit)', a.PublishCountInAudit)}
+      ${field('Status', a.Status)}${field('Authentication', a.AuthenticationMode)}${field('Orchestration', a.Orchestration)}
+      ${field('Agent ID', a.AgentId)}${field('Description', a.Description)}</dl>
+    <h3>Sharing · ${fmtN(a.SharedUserCount)} users reached</h3>
+    ${miniTable(arr(shareBy[key]), [['PrincipalName', 'Principal'], ['PrincipalType', 'Type'], ['UserPrincipalName', 'UPN'], ['Role', 'Role'], ['GroupMemberCount', 'Members', 'num'], ['Via', 'Via']])}
+    <h3>Tools</h3>${miniTable(arr(toolsBy[key]), [['ToolName', 'Name'], ['ToolType', 'Type'], ['OperationId', 'Operation'], ['AuthMode', 'Auth']])}
+    <h3>Connectors</h3>${miniTable(arr(connBy[key]), [['Connector', 'Connector'], ['UsedBy', 'Used by'], ['AuthMode', 'Auth'], ['ConnectionReference', 'Connection reference']])}
+    <h3>Knowledge</h3>${miniTable(arr(knowBy[key]), [['KnowledgeName', 'Name'], ['SourceType', 'Type'], ['Target', 'Target']])}
+    <h3>Top users</h3>${miniTable(topUsers, [['DisplayName', 'Name'], ['UserPrincipalName', 'UPN'], ['Sessions', 'Sessions', 'num'], ['ActiveDays', 'Days', 'num'], ['LastSeen', 'Last seen', 'date']])}
+    <h3>Audit events</h3>${miniTable(arr(lifeBy[key]), [['Operation', 'Operation'], ['Time', 'Time', 'date'], ['User', 'User']])}`;
+  d.classList.add('open'); d.setAttribute('aria-hidden', 'false');
+  document.getElementById('drawerBg').classList.add('open');
+  document.getElementById('closeBtn').onclick = closeDrawer;
+}
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawer').setAttribute('aria-hidden', 'true');
+  document.getElementById('drawerBg').classList.remove('open');
+}
+document.getElementById('drawerBg').onclick = closeDrawer;
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+
+// ---------- notes
+const notes = [
+  'Sessions use the source with the most sessions per agent (sources are not added together). Unique users are merged across sources by UPN.',
+  'Frequency: Daily = active on ≥50% of days in the window, Weekly = ≥1 day/week, Monthly = ≥1 day/month, Occasional = less.',
+  'Dataverse transcripts are kept for 30 days by default; Purview audit covers up to 180 days (Audit Standard).',
+  'Shared users counts direct users plus expanded group members (excluding the owner). Agents shared with everyone show the share only, not the tenant size.',
+  ...arr(meta.Warnings).map(w => `<span class="warn">${esc(w)}</span>`),
+];
+document.getElementById('notes').innerHTML = notes.map(n => `<li>${n}</li>`).join('');
+</script>
+</body>
+</html>

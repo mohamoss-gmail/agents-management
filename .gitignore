@@ -1,0 +1,6 @@
+# Run output holds real tenant data: user names, UPNs, environment and tenant IDs.
+Output/
+*.zip
+
+# Local settings (config.sample.json is the template).
+config.json

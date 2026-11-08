@@ -1,0 +1,14 @@
+{
+  "TenantId": "",
+  "Environments": [
+    "Contoso (default)",
+    "00000000-0000-0000-0000-000000000000"
+  ],
+  "AppInsights": [
+    {
+      "AgentId": "<Copilot Studio botid (GUID)>",
+      "AppId": "<Application Insights Application ID (API Access blade)>",
+      "Filter": ""
+    }
+  ]
+}
